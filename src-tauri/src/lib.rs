@@ -29,10 +29,7 @@ pub fn run() {
                 window.set_position(pos)?;
                 window.set_size(tauri::Size::Physical(size))?;
             }
-            // 移除窗口阴影（Windows DWM 阴影）
-            #[cfg(target_os = "windows")]
-            window.set_shadow(false)?;
-            window.set_resizable(false)?;
+
             // 移除 Windows 11 圆角
             #[cfg(target_os = "windows")]
             {
@@ -47,6 +44,15 @@ pub fn run() {
                     );
                 }
             }
+
+            // 移除窗口阴影（Windows DWM 阴影）
+            #[cfg(target_os = "windows")]
+            window.set_shadow(false)?;
+            
+            window.set_resizable(false)?;
+
+            // 所有设置完成后，显示窗口
+            window.show()?;
 
             // 构建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
