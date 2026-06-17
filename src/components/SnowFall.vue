@@ -14,6 +14,12 @@ const HEAVY_INTENSITY = 0.7;
 /** 从小雪变为大雪的最小/最大延迟时间（毫秒） */
 const TRANSITION_DELAY_MIN = 5000;
 const TRANSITION_DELAY_MAX = 20000;
+/** 风速变化幅度（像素/帧） */
+const WIND_AMPLITUDE = 0.8;
+/** 风速变化速度，越小变化越慢越平滑 */
+const WIND_SPEED = 0.001;
+/** 速度系数：速度 = 半径 × 该值 */
+const SPEED_FACTOR = 0.3;            
 // ===================
 
 interface Snowflake {
@@ -21,7 +27,7 @@ interface Snowflake {
   y: number;
   r: number;        // 半径
   speed: number;    // 下落速度
-  wind: number;     // 水平飘移速度
+  windOffset: number; // 个人风偏移（让雪花横向飘移略有差异）
   opacity: number;  // 透明度
   active: boolean;  // 是否活跃（用于控制疏密）
 }
@@ -29,12 +35,13 @@ interface Snowflake {
 function initSnowflakes(width: number, height: number): Snowflake[] {
   const flakes: Snowflake[] = [];
   for (let i = 0; i < MAX_SNOW; i++) {
+    const r = Math.random() * 4 + 1;
     flakes.push({
       x: Math.random() * width,
       y: -(Math.random() * height + 50), // 全部从顶部之外开始
-      r: Math.random() * 4 + 1,
-      speed: Math.random() * 1.5 + 0.5,
-      wind: Math.random() * 0.8 - 0.4,
+      r,
+      speed: r * SPEED_FACTOR,            // 越大越快，越小越慢
+      windOffset: Math.random() * 0.6 - 0.3,
       opacity: Math.random() * 0.5 + 0.3,
       active: true,
     });
@@ -63,13 +70,14 @@ function updateSnowflakes(
   flakes: Snowflake[],
   width: number,
   height: number,
-  intensity: number
+  intensity: number,
+  globalWind: number
 ) {
   for (const f of flakes) {
     if (!f.active) continue;
 
     f.y += f.speed;
-    f.x += f.wind + Math.sin(f.y * 0.01) * 0.3;
+    f.x += globalWind + f.windOffset + Math.sin(f.y * 0.01) * 0.3;
 
     // 飘出底部后根据当前强度决定是否重新出现
     if (f.y - f.r > height) {
@@ -121,6 +129,10 @@ function startAnimation(canvas: HTMLCanvasElement) {
   let isHeavy = false;
   // 随机决定何时从小雪切换到大雪
   const transitionAt = TRANSITION_DELAY_MIN + Math.random() * (TRANSITION_DELAY_MAX - TRANSITION_DELAY_MIN);
+  // 随机相位偏移，让每次启动的风向都不同
+  const phase1 = Math.random() * Math.PI * 2;
+  const phase2 = Math.random() * Math.PI * 2;
+  const phase3 = Math.random() * Math.PI * 2;
 
   function animate() {
     elapsed++;
@@ -132,8 +144,14 @@ function startAnimation(canvas: HTMLCanvasElement) {
       isHeavy = true;
     }
 
+    // 用多个正弦波叠加模拟随机自然风（左右方向变化）
+    const globalWind =
+      Math.sin(elapsed * WIND_SPEED * 1.0 + phase1) * WIND_AMPLITUDE * 0.5 +
+      Math.sin(elapsed * WIND_SPEED * 2.7 + phase2) * WIND_AMPLITUDE * 0.3 +
+      Math.sin(elapsed * WIND_SPEED * 5.3 + phase3) * WIND_AMPLITUDE * 0.2;
+
     const intensity = isHeavy ? HEAVY_INTENSITY : LIGHT_INTENSITY;
-    updateSnowflakes(flakes, w, h, intensity);
+    updateSnowflakes(flakes, w, h, intensity, globalWind);
     drawSnowfall(ctx, flakes, w, h);
     animationId = requestAnimationFrame(animate);
   }
