@@ -96,17 +96,18 @@ pub fn run() {
             }
             window.set_resizable(false)?;
 
-            // 所有设置完成后，显示窗口（但不激活，去掉焦点阴影）
+            // 禁止窗口获得焦点，彻底去掉焦点指示器
             #[cfg(target_os = "windows")]
             {
                 let hwnd = window.hwnd()?;
                 unsafe {
-                    windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(
-                        hwnd.0, 8, // SW_SHOWNA = 不激活显示
-                    );
+                    use windows_sys::Win32::UI::WindowsAndMessaging::*;
+                    let ex = GetWindowLongW(hwnd.0, GWL_EXSTYLE);
+                    SetWindowLongW(hwnd.0, GWL_EXSTYLE, ex | 0x08000000); // WS_EX_NOACTIVATE
                 }
             }
-            #[cfg(not(target_os = "windows"))]
+
+            // 所有设置完成后，显示窗口
             window.show()?;
 
             // 构建托盘菜单
