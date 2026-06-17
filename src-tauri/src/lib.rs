@@ -1,6 +1,6 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use tauri::{
-    menu::{CheckMenuItem, Menu, MenuItem},
+    menu::{Menu, MenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
@@ -25,10 +25,13 @@ pub fn run() {
 
             // 构建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
-            let music_item =
-                CheckMenuItem::with_id(app, "music", "背景音乐", true, true, None::<&str>)?;
+            let music_off = MenuItem::with_id(app, "music-off", "🔇 关闭音乐", true, None::<&str>)?;
+            let music1 = MenuItem::with_id(app, "music-1", "🎵 音乐一", true, None::<&str>)?;
+            let music2 = MenuItem::with_id(app, "music-2", "🎵 音乐二", true, None::<&str>)?;
+            let music_submenu =
+                Submenu::with_items(app, "背景音乐", true, &[&music_off, &music1, &music2])?;
             let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_item, &music_item, &quit_item])?;
+            let menu = Menu::with_items(app, &[&show_item, &music_submenu, &quit_item])?;
 
             // 创建系统托盘图标
             TrayIconBuilder::new()
@@ -49,8 +52,12 @@ pub fn run() {
                             }
                         }
                     }
-                    "music" => {
-                        let _ = app.emit("music-toggle", ());
+                    "music-off" => {
+                        let _ = app.emit("music-stop", ());
+                        let _ = app.emit("music-off", ());
+                    }
+                    "music-1" | "music-2" => {
+                        let _ = app.emit("music-select", event.id.as_ref());
                     }
                     "quit" => {
                         app.exit(0);
