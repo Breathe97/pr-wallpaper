@@ -96,7 +96,17 @@ pub fn run() {
             }
             window.set_resizable(false)?;
 
-            // 所有设置完成后，显示窗口
+            // 所有设置完成后，显示窗口（但不激活，去掉焦点阴影）
+            #[cfg(target_os = "windows")]
+            {
+                let hwnd = window.hwnd()?;
+                unsafe {
+                    windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(
+                        hwnd.0, 8, // SW_SHOWNA = 不激活显示
+                    );
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
             window.show()?;
 
             // 构建托盘菜单
