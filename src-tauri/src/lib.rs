@@ -26,10 +26,10 @@ pub fn run() {
             if let Some(monitor) = window.current_monitor()? {
                 let size = *monitor.size();
                 let pos = *monitor.position();
-                window.set_position(tauri::PhysicalPosition::new(pos.x - 10, pos.y - 10))?;
+                window.set_position(tauri::PhysicalPosition::new(pos.x - 100, pos.y - 100))?;
                 window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(
-                    size.width + 20,
-                    size.height + 20,
+                    size.width + 200,
+                    size.height + 200,
                 )))?;
             }
 
