@@ -24,10 +24,14 @@ pub fn run() {
             window.set_ignore_cursor_events(true)?;
             // 铺满整个显示器（覆盖任务栏区域）
             if let Some(monitor) = window.current_monitor()? {
-                let size = *monitor.size(); // 加个星号解引用
-                window.set_position(tauri::PhysicalPosition::new(0, 0))?;
+                let size = *monitor.size();
+                let pos = *monitor.position();
+                window.set_position(pos)?;
                 window.set_size(tauri::Size::Physical(size))?;
             }
+            // 移除窗口阴影（Windows DWM 阴影）
+            #[cfg(target_os = "windows")]
+            window.set_shadow(false)?;
             window.set_resizable(false)?;
 
             // 构建托盘菜单
