@@ -12,21 +12,13 @@
   "app": {
     "windows": [
       {
-        "//": "窗口标题",
         "title": "pr-wallpaper",
-        "//": "是否显示窗口装饰（标题栏、边框等）",
         "decorations": false,
-        "//": "窗口背景是否透明",
         "transparent": false,
-        "//": "窗口是否置顶显示",
         "alwaysOnTop": true,
-        "//": "是否在任务栏中隐藏",
         "skipTaskbar": true,
-        "//": "是否全屏",
-        "fullscreen": true,
-        "//": "窗口宽度（非全屏时有效）",
+         "fullscreen": true,
         "width": 800,
-        "//": "窗口高度（非全屏时有效）",
         "height": 600
       }
     ],

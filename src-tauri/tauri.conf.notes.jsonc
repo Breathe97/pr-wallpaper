@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "pr-wallpaper",
+  "version": "0.1.0",
+  "identifier": "com.pryun.pr-wallpaper",
+  "build": {
+    "beforeDevCommand": "bun run dev",   // 开发前执行的命令
+    "devUrl": "http://localhost:1420",    // 开发服务器地址
+    "beforeBuildCommand": "bun run build", // 构建前执行的命令
+    "frontendDist": "../dist"              // 前端构建产物目录
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "pr-wallpaper",       // 窗口标题
+        "decorations": false,           // 是否显示窗口装饰
+        "transparent": false,           // 是否透明
+        "alwaysOnTop": true,            // 是否置顶
+        "skipTaskbar": true,            // 是否隐藏任务栏
+        "fullscreen": true,             // 是否全屏
+        "width": 800,                   // 窗口宽度
+        "height": 600                   // 窗口高度
+      }
+    ],
+    "security": {
+      "csp": null                       // 内容安全策略
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+  }
+}
