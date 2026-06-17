@@ -16,12 +16,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
-            // 确保无边框
             window.set_decorations(false)?;
-            // 隐藏任务栏图标
             window.set_skip_taskbar(true)?;
-            // 启用鼠标事件穿透
             window.set_ignore_cursor_events(true)?;
+
             // 铺满整个显示器
             if let Some(monitor) = window.current_monitor()? {
                 let size = *monitor.size();
@@ -29,7 +27,8 @@ pub fn run() {
                 window.set_position(pos)?;
                 window.set_size(tauri::Size::Physical(size))?;
             }
-            // 移除 Windows 11 圆角
+
+            // 移除 Windows 11 圆角 + 阴影
             #[cfg(target_os = "windows")]
             {
                 let hwnd = window.hwnd()?;
@@ -45,36 +44,58 @@ pub fn run() {
             }
             #[cfg(target_os = "windows")]
             window.set_shadow(false)?;
-            // 把窗口放到最底层（Wallpaper 层级）
-            #[cfg(target_os = "windows")]
-            {
-                let hwnd = window.hwnd()?;
-                unsafe {
-                    windows_sys::Win32::UI::WindowsAndMessaging::SetWindowPos(
-                        hwnd.0,
-                        windows_sys::Win32::UI::WindowsAndMessaging::HWND_BOTTOM,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0x0001 | 0x0002,
-                    );
-                }
-            }
             window.set_resizable(false)?;
 
-            // 禁止窗口获得焦点，彻底去掉焦点指示器
+            // 设置为 WorkerW 的子窗口 → 随桌面显示/隐藏，Win+D 时可见
             #[cfg(target_os = "windows")]
             {
                 let hwnd = window.hwnd()?;
                 unsafe {
                     use windows_sys::Win32::UI::WindowsAndMessaging::*;
-                    let ex = GetWindowLongW(hwnd.0, GWL_EXSTYLE);
-                    SetWindowLongW(hwnd.0, GWL_EXSTYLE, ex | 0x08000000); // WS_EX_NOACTIVATE
+                    let progman = FindWindowW(
+                        [80u16, 114, 111, 103, 109, 97, 110, 0].as_ptr(),
+                        std::ptr::null(),
+                    );
+                    if !progman.is_null() {
+                        // 让 Progman 创建桌面 WorkerW
+                        SendMessageW(progman, 0x052C, 0, 0);
+                        // 找到包含桌面图标的 WorkerW
+                        let mut workerw = std::ptr::null_mut();
+                        loop {
+                            workerw = FindWindowExW(
+                                std::ptr::null_mut(),
+                                workerw,
+                                [87u16, 111, 114, 107, 101, 114, 87, 0].as_ptr(),
+                                std::ptr::null(),
+                            );
+                            if workerw.is_null() {
+                                break;
+                            }
+                            let view = FindWindowExW(
+                                workerw,
+                                std::ptr::null_mut(),
+                                [
+                                    83u16, 72, 69, 76, 76, 68, 76, 76, 95, 68, 101, 102, 86, 105,
+                                    101, 119, 0,
+                                ]
+                                .as_ptr(),
+                                std::ptr::null(),
+                            );
+                            if !view.is_null() {
+                                break;
+                            }
+                        }
+                        if !workerw.is_null() {
+                            // 设置为 WorkerW 的子窗口
+                            SetParent(hwnd.0 as *mut std::ffi::c_void, workerw);
+                            // 显示窗口
+                            ShowWindow(hwnd.0, 5); // SW_SHOW
+                        }
+                    }
                 }
             }
 
-            // 所有设置完成后，显示窗口
+            #[cfg(not(target_os = "windows"))]
             window.show()?;
 
             // 构建托盘菜单
