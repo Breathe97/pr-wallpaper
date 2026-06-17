@@ -7,7 +7,7 @@ const isPlaying = ref(true)
 const musicEnabled = ref(true) // 用户是否勾选了"背景音乐"
 
 onMounted(async () => {
-  const aud = new Audio('/music/music.mp3')
+  const aud = new Audio('/music/music2.mp3')
   aud.loop = true
   aud.volume = 0.3
   audio.value = aud
