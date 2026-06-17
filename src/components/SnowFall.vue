@@ -4,6 +4,18 @@ import { ref, onMounted, onUnmounted } from "vue";
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 let animationId = 0;
 
+// ===== 可调参数 =====
+/** 雪花总数 */
+const MAX_SNOW = 100;
+/** 小雪强度（0~1，越低雪花越少） */
+const LIGHT_INTENSITY = 0.12;
+/** 大雪强度（0~1） */
+const HEAVY_INTENSITY = 0.7;
+/** 从小雪变为大雪的最小/最大延迟时间（毫秒） */
+const TRANSITION_DELAY_MIN = 5000;
+const TRANSITION_DELAY_MAX = 20000;
+// ===================
+
 interface Snowflake {
   x: number;
   y: number;
@@ -11,20 +23,20 @@ interface Snowflake {
   speed: number;    // 下落速度
   wind: number;     // 水平飘移速度
   opacity: number;  // 透明度
+  active: boolean;  // 是否活跃（用于控制疏密）
 }
-
-const SNOW_COUNT = 150;
 
 function initSnowflakes(width: number, height: number): Snowflake[] {
   const flakes: Snowflake[] = [];
-  for (let i = 0; i < SNOW_COUNT; i++) {
+  for (let i = 0; i < MAX_SNOW; i++) {
     flakes.push({
       x: Math.random() * width,
-      y: Math.random() * height,
+      y: -(Math.random() * height + 50), // 全部从顶部之外开始
       r: Math.random() * 4 + 1,
       speed: Math.random() * 1.5 + 0.5,
       wind: Math.random() * 0.8 - 0.4,
       opacity: Math.random() * 0.5 + 0.3,
+      active: true,
     });
   }
   return flakes;
@@ -39,6 +51,7 @@ function drawSnowfall(
   ctx.clearRect(0, 0, width, height);
 
   for (const f of flakes) {
+    if (!f.active) continue;
     ctx.beginPath();
     ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(255, 255, 255, ${f.opacity})`;
@@ -46,21 +59,41 @@ function drawSnowfall(
   }
 }
 
-function updateSnowflakes(flakes: Snowflake[], width: number, height: number) {
+function updateSnowflakes(
+  flakes: Snowflake[],
+  width: number,
+  height: number,
+  intensity: number
+) {
   for (const f of flakes) {
+    if (!f.active) continue;
+
     f.y += f.speed;
     f.x += f.wind + Math.sin(f.y * 0.01) * 0.3;
 
-    // 飘出底部后从顶部重新出现
+    // 飘出底部后根据当前强度决定是否重新出现
     if (f.y - f.r > height) {
-      f.y = -f.r;
-      f.x = Math.random() * width;
+      if (Math.random() < intensity) {
+        f.y = -f.r;
+        f.x = Math.random() * width;
+      } else {
+        f.active = false; // 强度低时暂时休眠
+      }
     }
     // 飘出左右边界后从另一侧进入
     if (f.x + f.r < 0) {
       f.x = width + f.r;
     } else if (f.x - f.r > width) {
       f.x = -f.r;
+    }
+  }
+
+  // 唤醒部分休眠的雪花（强度越高唤醒越多）
+  for (const f of flakes) {
+    if (!f.active && Math.random() < intensity * 0.02) {
+      f.active = true;
+      f.y = -f.r;
+      f.x = Math.random() * width;
     }
   }
 }
@@ -84,11 +117,23 @@ function startAnimation(canvas: HTMLCanvasElement) {
   window.addEventListener("resize", resize);
 
   const flakes = initSnowflakes(window.innerWidth, window.innerHeight);
+  let elapsed = 0;
+  let isHeavy = false;
+  // 随机决定何时从小雪切换到大雪
+  const transitionAt = TRANSITION_DELAY_MIN + Math.random() * (TRANSITION_DELAY_MAX - TRANSITION_DELAY_MIN);
 
   function animate() {
+    elapsed++;
     const w = window.innerWidth;
     const h = window.innerHeight;
-    updateSnowflakes(flakes, w, h);
+
+    // 到达切换时间后变为大雪
+    if (!isHeavy && elapsed * 16 >= transitionAt) {
+      isHeavy = true;
+    }
+
+    const intensity = isHeavy ? HEAVY_INTENSITY : LIGHT_INTENSITY;
+    updateSnowflakes(flakes, w, h, intensity);
     drawSnowfall(ctx, flakes, w, h);
     animationId = requestAnimationFrame(animate);
   }
