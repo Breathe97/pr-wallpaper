@@ -22,12 +22,15 @@ pub fn run() {
             window.set_skip_taskbar(true)?;
             // 启用鼠标事件穿透
             window.set_ignore_cursor_events(true)?;
-            // 铺满整个显示器（覆盖任务栏区域）
+            // 铺满整个显示器（向外扩 1px 把阴影推到屏幕外）
             if let Some(monitor) = window.current_monitor()? {
                 let size = *monitor.size();
                 let pos = *monitor.position();
-                window.set_position(pos)?;
-                window.set_size(tauri::Size::Physical(size))?;
+                window.set_position(tauri::PhysicalPosition::new(pos.x - 10, pos.y - 10))?;
+                window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(
+                    size.width + 20,
+                    size.height + 20,
+                )))?;
             }
 
             // 移除 Windows 11 圆角
