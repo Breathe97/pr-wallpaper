@@ -16,11 +16,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
-
-            // 启用鼠标事件穿透
-            window.set_ignore_cursor_events(true)?;
+            // 确保无边框
+            window.set_decorations(false)?;
             // 隐藏任务栏图标
             window.set_skip_taskbar(true)?;
+            // 启用鼠标事件穿透
+            window.set_ignore_cursor_events(true)?;
+            // 铺满整个显示器（覆盖任务栏区域）
+            if let Some(monitor) = window.current_monitor()? {
+                let size = *monitor.size(); // 加个星号解引用
+                window.set_position(tauri::PhysicalPosition::new(0, 0))?;
+                window.set_size(tauri::Size::Physical(size))?;
+            }
+            window.set_resizable(false)?;
 
             // 构建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
