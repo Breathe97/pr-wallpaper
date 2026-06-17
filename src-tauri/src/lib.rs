@@ -88,15 +88,24 @@ pub fn run() {
                         if !workerw.is_null() {
                             // 设置为 WorkerW 的子窗口
                             SetParent(hwnd.0 as *mut std::ffi::c_void, workerw);
-                            // 显示窗口
-                            ShowWindow(hwnd.0, 5); // SW_SHOW
+                            // 重新设置位置和大小（坐标系变了）
+                            if let Some(monitor) = window.current_monitor()? {
+                                let s = *monitor.size();
+                                let p = *monitor.position();
+                                SetWindowPos(
+                                    hwnd.0,
+                                    std::ptr::null_mut(),
+                                    p.x as i32,
+                                    p.y as i32,
+                                    s.width as i32,
+                                    s.height as i32,
+                                    0x0004 | 0x0010 | 0x0040, // SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW
+                                );
+                            }
                         }
                     }
                 }
             }
-
-            #[cfg(not(target_os = "windows"))]
-            window.show()?;
 
             // 构建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
