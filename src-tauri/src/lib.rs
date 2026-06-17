@@ -33,6 +33,20 @@ pub fn run() {
             #[cfg(target_os = "windows")]
             window.set_shadow(false)?;
             window.set_resizable(false)?;
+            // 移除 Windows 11 圆角
+            #[cfg(target_os = "windows")]
+            {
+                let hwnd = window.hwnd()?; // 返回 windows::Win32::Foundation::HWND
+                let preference: u32 = 1u32; // DWMWCP_DONOTROUND = 1
+                unsafe {
+                    windows_sys::Win32::Graphics::Dwm::DwmSetWindowAttribute(
+                        hwnd.0, // 已经是 *mut c_void
+                        33u32,
+                        &preference as *const _ as *const std::ffi::c_void,
+                        std::mem::size_of::<u32>() as u32,
+                    );
+                }
+            }
 
             // 构建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
