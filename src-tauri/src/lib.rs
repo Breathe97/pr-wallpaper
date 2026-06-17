@@ -46,66 +46,8 @@ pub fn run() {
             window.set_shadow(false)?;
             window.set_resizable(false)?;
 
-            // 设置为 WorkerW 的子窗口 → 随桌面显示/隐藏，Win+D 时可见
-            #[cfg(target_os = "windows")]
-            {
-                let hwnd = window.hwnd()?;
-                unsafe {
-                    use windows_sys::Win32::UI::WindowsAndMessaging::*;
-                    let progman = FindWindowW(
-                        [80u16, 114, 111, 103, 109, 97, 110, 0].as_ptr(),
-                        std::ptr::null(),
-                    );
-                    if !progman.is_null() {
-                        // 让 Progman 创建桌面 WorkerW
-                        SendMessageW(progman, 0x052C, 0, 0);
-                        // 找到包含桌面图标的 WorkerW
-                        let mut workerw = std::ptr::null_mut();
-                        loop {
-                            workerw = FindWindowExW(
-                                std::ptr::null_mut(),
-                                workerw,
-                                [87u16, 111, 114, 107, 101, 114, 87, 0].as_ptr(),
-                                std::ptr::null(),
-                            );
-                            if workerw.is_null() {
-                                break;
-                            }
-                            let view = FindWindowExW(
-                                workerw,
-                                std::ptr::null_mut(),
-                                [
-                                    83u16, 72, 69, 76, 76, 68, 76, 76, 95, 68, 101, 102, 86, 105,
-                                    101, 119, 0,
-                                ]
-                                .as_ptr(),
-                                std::ptr::null(),
-                            );
-                            if !view.is_null() {
-                                break;
-                            }
-                        }
-                        if !workerw.is_null() {
-                            // 设置为 WorkerW 的子窗口
-                            SetParent(hwnd.0 as *mut std::ffi::c_void, workerw);
-                            // 重新设置位置和大小（坐标系变了）
-                            if let Some(monitor) = window.current_monitor()? {
-                                let s = *monitor.size();
-                                let p = *monitor.position();
-                                SetWindowPos(
-                                    hwnd.0,
-                                    std::ptr::null_mut(),
-                                    p.x as i32,
-                                    p.y as i32,
-                                    s.width as i32,
-                                    s.height as i32,
-                                    0x0004 | 0x0010 | 0x0040, // SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW
-                                );
-                            }
-                        }
-                    }
-                }
-            }
+            // 显示窗口（此时已是全屏尺寸）
+            window.show()?;
 
             // 构建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
