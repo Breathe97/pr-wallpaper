@@ -15,7 +15,7 @@
         "title": "pr-wallpaper",
         "decorations": false,
         "transparent": true,
-        "alwaysOnTop": false,
+        "alwaysOnTop": true,
         "skipTaskbar": true,
         "visible": false,
         "fullscreen": false,
