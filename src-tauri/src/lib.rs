@@ -20,33 +20,7 @@ pub fn run() {
             window.set_skip_taskbar(true)?;
             window.set_ignore_cursor_events(true)?;
 
-            // 铺满整个显示器
-            if let Some(monitor) = window.current_monitor()? {
-                let size = *monitor.size();
-                let pos = *monitor.position();
-                window.set_position(pos)?;
-                window.set_size(tauri::Size::Physical(size))?;
-            }
-
-            // 移除 Windows 11 圆角 + 阴影
-            #[cfg(target_os = "windows")]
-            {
-                let hwnd = window.hwnd()?;
-                let preference: u32 = 1u32;
-                unsafe {
-                    windows_sys::Win32::Graphics::Dwm::DwmSetWindowAttribute(
-                        hwnd.0,
-                        33u32,
-                        &preference as *const _ as *const std::ffi::c_void,
-                        std::mem::size_of::<u32>() as u32,
-                    );
-                }
-            }
-            #[cfg(target_os = "windows")]
-            window.set_shadow(false)?;
             window.set_resizable(false)?;
-
-            // 显示窗口（此时已是全屏尺寸）
             window.show()?;
 
             // 构建托盘菜单
