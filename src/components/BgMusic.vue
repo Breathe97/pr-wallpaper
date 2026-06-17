@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 
 const audio = ref<HTMLAudioElement | null>(null);
 const isPlaying = ref(true);
+const musicEnabled = ref(true); // 用户是否勾选了"背景音乐"
 
 onMounted(async () => {
   const aud = new Audio("/music/music.mp3");
@@ -17,19 +18,38 @@ onMounted(async () => {
     isPlaying.value = false;
   }
 
-  const unlisten = await listen("music-toggle", () => {
+  const unlistenToggle = await listen("music-toggle", () => {
     if (!audio.value) return;
-    if (isPlaying.value) {
-      audio.value.pause();
-      isPlaying.value = false;
-    } else {
+    musicEnabled.value = !musicEnabled.value;
+    if (musicEnabled.value) {
+      // 重新勾选 → 从 0 播放
+      audio.value.currentTime = 0;
       audio.value.play();
       isPlaying.value = true;
+    } else {
+      // 取消勾选 → 强制停止
+      audio.value.pause();
+      isPlaying.value = false;
     }
   });
 
+  const unlistenPlay = await listen("music-play", () => {
+    if (!audio.value || !musicEnabled.value) return;
+    audio.value.currentTime = 0;
+    audio.value.play();
+    isPlaying.value = true;
+  });
+
+  const unlistenStop = await listen("music-stop", () => {
+    if (!audio.value) return;
+    audio.value.pause();
+    isPlaying.value = false;
+  });
+
   onUnmounted(() => {
-    unlisten();
+    unlistenToggle();
+    unlistenPlay();
+    unlistenStop();
     audio.value?.pause();
     audio.value = null;
   });

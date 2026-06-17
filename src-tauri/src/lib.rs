@@ -70,10 +70,12 @@ pub fn run() {
                             if window.is_visible().unwrap_or(false) {
                                 let _ = window.hide();
                                 let _ = app.emit("snow-stop", ());
+                                let _ = app.emit("music-stop", ());
                             } else {
                                 let _ = window.show();
                                 let _ = window.set_ignore_cursor_events(true);
                                 let _ = app.emit("snow-restart", ());
+                                let _ = app.emit("music-play", ());
                             }
                         }
                     }
@@ -97,10 +99,12 @@ pub fn run() {
                             if window.is_visible().unwrap_or(false) {
                                 let _ = window.hide();
                                 let _ = app.emit("snow-stop", ());
+                                let _ = app.emit("music-stop", ());
                             } else {
                                 let _ = window.show();
                                 let _ = window.set_ignore_cursor_events(true);
                                 let _ = app.emit("snow-restart", ());
+                                let _ = app.emit("music-play", ());
                             }
                         }
                     }
