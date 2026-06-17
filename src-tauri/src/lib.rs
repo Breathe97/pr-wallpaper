@@ -51,7 +51,49 @@ pub fn run() {
             // 移除窗口阴影（Windows DWM 阴影）
             #[cfg(target_os = "windows")]
             window.set_shadow(false)?;
-            
+            // 设置为桌面壁纸窗口（位于桌面图标/任务栏下方）
+            #[cfg(target_os = "windows")]
+            {
+                let hwnd = window.hwnd()?;
+                unsafe {
+                    use windows_sys::Win32::UI::WindowsAndMessaging::*;
+                    let progman = FindWindowW(
+                        [80u16, 114, 111, 103, 109, 97, 110, 0].as_ptr(),
+                        std::ptr::null(),
+                    );
+                    if !progman.is_null() {
+                        SendMessageW(progman, 0x052C, 0, 0);
+                        let mut workerw = std::ptr::null_mut();
+                        loop {
+                            workerw = FindWindowExW(
+                                std::ptr::null_mut(),
+                                workerw,
+                                [87u16, 111, 114, 107, 101, 114, 87, 0].as_ptr(),
+                                std::ptr::null(),
+                            );
+                            if workerw.is_null() {
+                                break;
+                            }
+                            let view = FindWindowExW(
+                                workerw,
+                                std::ptr::null_mut(),
+                                [
+                                    83u16, 72, 69, 76, 76, 68, 76, 76, 95, 68, 101, 102, 86, 105,
+                                    101, 119, 0,
+                                ]
+                                .as_ptr(),
+                                std::ptr::null(),
+                            );
+                            if !view.is_null() {
+                                break;
+                            }
+                        }
+                        if !workerw.is_null() {
+                            SetParent(hwnd.0 as *mut std::ffi::c_void, workerw);
+                        }
+                    }
+                }
+            }
             window.set_resizable(false)?;
 
             // 所有设置完成后，显示窗口
@@ -59,7 +101,8 @@ pub fn run() {
 
             // 构建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
-            let music_item = CheckMenuItem::with_id(app, "music", "背景音乐", true, true, None::<&str>)?;
+            let music_item =
+                CheckMenuItem::with_id(app, "music", "背景音乐", true, true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_item, &music_item, &quit_item])?;
 
