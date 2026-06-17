@@ -1,8 +1,8 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{CheckMenuItem, Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Emitter, Manager,
 };
 
 #[tauri::command]
@@ -56,8 +56,9 @@ pub fn run() {
 
             // 构建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
+            let music_item = CheckMenuItem::with_id(app, "music", "背景音乐", true, true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+            let menu = Menu::with_items(app, &[&show_item, &music_item, &quit_item])?;
 
             // 创建系统托盘图标
             TrayIconBuilder::new()
@@ -68,11 +69,16 @@ pub fn run() {
                         if let Some(window) = app.get_webview_window("main") {
                             if window.is_visible().unwrap_or(false) {
                                 let _ = window.hide();
+                                let _ = app.emit("snow-stop", ());
                             } else {
                                 let _ = window.show();
                                 let _ = window.set_ignore_cursor_events(true);
+                                let _ = app.emit("snow-restart", ());
                             }
                         }
+                    }
+                    "music" => {
+                        let _ = app.emit("music-toggle", ());
                     }
                     "quit" => {
                         app.exit(0);
@@ -90,9 +96,11 @@ pub fn run() {
                         if let Some(window) = app.get_webview_window("main") {
                             if window.is_visible().unwrap_or(false) {
                                 let _ = window.hide();
+                                let _ = app.emit("snow-stop", ());
                             } else {
                                 let _ = window.show();
                                 let _ = window.set_ignore_cursor_events(true);
+                                let _ = app.emit("snow-restart", ());
                             }
                         }
                     }
