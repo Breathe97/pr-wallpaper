@@ -22,76 +22,43 @@ pub fn run() {
             window.set_skip_taskbar(true)?;
             // 启用鼠标事件穿透
             window.set_ignore_cursor_events(true)?;
-            // 铺满整个显示器（向外扩 1px 把阴影推到屏幕外）
+            // 铺满整个显示器
             if let Some(monitor) = window.current_monitor()? {
                 let size = *monitor.size();
                 let pos = *monitor.position();
-                window.set_position(tauri::PhysicalPosition::new(pos.x - 100, pos.y - 100))?;
-                window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(
-                    size.width + 200,
-                    size.height + 200,
-                )))?;
+                window.set_position(pos)?;
+                window.set_size(tauri::Size::Physical(size))?;
             }
-
             // 移除 Windows 11 圆角
             #[cfg(target_os = "windows")]
             {
-                let hwnd = window.hwnd()?; // 返回 windows::Win32::Foundation::HWND
-                let preference: u32 = 1u32; // DWMWCP_DONOTROUND = 1
+                let hwnd = window.hwnd()?;
+                let preference: u32 = 1u32;
                 unsafe {
                     windows_sys::Win32::Graphics::Dwm::DwmSetWindowAttribute(
-                        hwnd.0, // 已经是 *mut c_void
+                        hwnd.0,
                         33u32,
                         &preference as *const _ as *const std::ffi::c_void,
                         std::mem::size_of::<u32>() as u32,
                     );
                 }
             }
-
-            // 移除窗口阴影（Windows DWM 阴影）
             #[cfg(target_os = "windows")]
             window.set_shadow(false)?;
-            // 设置为桌面壁纸窗口（位于桌面图标/任务栏下方）
+            // 把窗口放到最底层（Wallpaper 层级）
             #[cfg(target_os = "windows")]
             {
                 let hwnd = window.hwnd()?;
                 unsafe {
-                    use windows_sys::Win32::UI::WindowsAndMessaging::*;
-                    let progman = FindWindowW(
-                        [80u16, 114, 111, 103, 109, 97, 110, 0].as_ptr(),
-                        std::ptr::null(),
+                    windows_sys::Win32::UI::WindowsAndMessaging::SetWindowPos(
+                        hwnd.0,
+                        windows_sys::Win32::UI::WindowsAndMessaging::HWND_BOTTOM,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0x0001 | 0x0002,
                     );
-                    if !progman.is_null() {
-                        SendMessageW(progman, 0x052C, 0, 0);
-                        let mut workerw = std::ptr::null_mut();
-                        loop {
-                            workerw = FindWindowExW(
-                                std::ptr::null_mut(),
-                                workerw,
-                                [87u16, 111, 114, 107, 101, 114, 87, 0].as_ptr(),
-                                std::ptr::null(),
-                            );
-                            if workerw.is_null() {
-                                break;
-                            }
-                            let view = FindWindowExW(
-                                workerw,
-                                std::ptr::null_mut(),
-                                [
-                                    83u16, 72, 69, 76, 76, 68, 76, 76, 95, 68, 101, 102, 86, 105,
-                                    101, 119, 0,
-                                ]
-                                .as_ptr(),
-                                std::ptr::null(),
-                            );
-                            if !view.is_null() {
-                                break;
-                            }
-                        }
-                        if !workerw.is_null() {
-                            SetParent(hwnd.0 as *mut std::ffi::c_void, workerw);
-                        }
-                    }
                 }
             }
             window.set_resizable(false)?;
