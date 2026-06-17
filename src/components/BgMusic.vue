@@ -17,10 +17,9 @@ function switchTrack(trackId: string) {
   if (!src) return
   currentTrack.value = trackId
   if (!audio.value) return
-  const wasPlaying = !audio.value.paused
   audio.value.src = src
   audio.value.load()
-  if (wasPlaying && musicEnabled.value) {
+  if (musicEnabled.value) {
     audio.value.play()
   }
 }
