@@ -131,9 +131,13 @@ function startAnimation(canvas: HTMLCanvasElement) {
     localAnimId = requestAnimationFrame(animate);
   }
 
-  animate();
+  // 延迟 2 秒启动雪花，等音乐
+  const startTimeout = setTimeout(() => {
+    animate();
+  }, 1000);
 
   return () => {
+    clearTimeout(startTimeout);
     cancelAnimationFrame(localAnimId);
     window.removeEventListener("resize", resize);
   };
