@@ -19,6 +19,11 @@ const WIND_SPEED = 0.001;
 const SPEED_FACTOR = 0.3;
 // ===================
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 interface Snowflake {
   x: number;
   y: number;
@@ -27,6 +32,21 @@ interface Snowflake {
   windOffset: number;
   opacity: number;
   active: boolean;
+  /** 不规则形状顶点偏移（相对于圆心，已按半径缩放） */
+  shape: Point[];
+}
+
+/** 生成不规则形状的顶点（8~12 个点，半径波动 0.6~1.0） */
+function generateIrregularShape(baseR: number): Point[] {
+  const count = Math.floor(Math.random() * 5) + 8; // 8~12
+  const points: Point[] = [];
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    const rFactor = 0.6 + Math.random() * 0.4; // 0.6~1.0 随机波动
+    const r = baseR * rFactor;
+    points.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+  }
+  return points;
 }
 
 function initSnowflakes(width: number, height: number): Snowflake[] {
@@ -41,6 +61,7 @@ function initSnowflakes(width: number, height: number): Snowflake[] {
       windOffset: Math.random() * 0.6 - 0.3,
       opacity: 1,
       active: true,
+      shape: generateIrregularShape(r),
     });
   }
   return flakes;
@@ -48,13 +69,18 @@ function initSnowflakes(width: number, height: number): Snowflake[] {
 
 function drawSnowfall(ctx: CanvasRenderingContext2D, flakes: Snowflake[], width: number, height: number) {
   ctx.clearRect(0, 0, width, height);
+  const path = new Path2D();
   for (const f of flakes) {
     if (!f.active) continue;
-    ctx.beginPath();
-    ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-    ctx.fillStyle = "#fff";
-    ctx.fill();
+    const pts = f.shape;
+    path.moveTo(f.x + pts[0].x, f.y + pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      path.lineTo(f.x + pts[i].x, f.y + pts[i].y);
+    }
+    path.closePath();
   }
+  ctx.fillStyle = "#fff";
+  ctx.fill(path);
 }
 
 function updateSnowflakes(
