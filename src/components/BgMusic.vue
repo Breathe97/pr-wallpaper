@@ -3,8 +3,8 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { listen } from '@tauri-apps/api/event'
 
 const audio = ref<HTMLAudioElement | null>(null)
-const isPlaying = ref(true)
-const musicEnabled = ref(true)
+const isPlaying = ref(false)
+const musicEnabled = ref(false)
 const currentTrack = ref('music-1')
 
 const MUSIC_FILES: Record<string, string> = {
@@ -30,11 +30,7 @@ onMounted(async () => {
   aud.volume = 0.3
   audio.value = aud
 
-  try {
-    await aud.play()
-  } catch {
-    isPlaying.value = false
-  }
+  // 默认不播放，等待外部事件触发
 
   const unlistenOff = await listen('music-off', () => {
     musicEnabled.value = false

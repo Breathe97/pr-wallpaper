@@ -42,7 +42,7 @@ function initSnowflakes(width: number, height: number): Snowflake[] {
       r,
       speed: r * SPEED_FACTOR,
       windOffset: Math.random() * 0.6 - 0.3,
-      opacity: Math.random() * 0.5 + 0.3,
+      opacity: 1,
       active: true,
     });
   }
@@ -55,7 +55,7 @@ function drawSnowfall(ctx: CanvasRenderingContext2D, flakes: Snowflake[], width:
     if (!f.active) continue;
     ctx.beginPath();
     ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 255, 255, ${f.opacity})`;
+    ctx.fillStyle = "#fff";
     ctx.fill();
   }
 }

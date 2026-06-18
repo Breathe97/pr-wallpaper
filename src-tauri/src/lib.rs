@@ -26,9 +26,9 @@ pub fn run() {
             // 构建托盘菜单
             let show_item = MenuItem::with_id(app, "show", "显示/隐藏", true, None::<&str>)?;
             let music_off =
-                CheckMenuItem::with_id(app, "music-off", "🔇 关闭音乐", true, false, None::<&str>)?;
+                CheckMenuItem::with_id(app, "music-off", "🔇 关闭音乐", true, true, None::<&str>)?;
             let music1 =
-                CheckMenuItem::with_id(app, "music-1", "🎵 音乐一", true, true, None::<&str>)?;
+                CheckMenuItem::with_id(app, "music-1", "🎵 音乐一", true, false, None::<&str>)?;
             let music2 =
                 CheckMenuItem::with_id(app, "music-2", "🎵 音乐二", true, false, None::<&str>)?;
             let music_submenu =
