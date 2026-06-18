@@ -14,7 +14,7 @@ const HEAVY_INTENSITY = 0.7;
 /** 风速强度（像素/帧） */
 const WIND_AMPLITUDE = 8.0;
 /** 速度系数：速度 = 半径 × 该值 */
-const SPEED_FACTOR = 0.3;
+const SPEED_FACTOR = 0.55;
 // ===================
 
 interface Snowflake {
@@ -197,13 +197,14 @@ const SNOW_INERTIA = 0.06;
 
 function updateSnowflakes(
   flakes: Snowflake[], width: number, height: number,
-  intensity: number, globalWind: number, swayPhase: number
+  intensity: number, globalWind: number, swayPhase: number, windAbs: number
 ) {
   for (const f of flakes) {
     if (!f.active) continue;
     f.y += f.speed;
-    // 水平速度平滑跟踪风速（惯性效应：风停后雪花继续滑行）
-    const targetVx = globalWind + f.windOffset + Math.sin(swayPhase + f.windOffset * Math.PI) * 0.6;
+    // 摆动幅度随风力变化：无风≈垂直下落，大风≈自然摇摆
+    const swayAmp = 0.08 + windAbs * 0.5;
+    const targetVx = globalWind + f.windOffset + Math.sin(swayPhase + f.windOffset * Math.PI) * swayAmp;
     f.vx += (targetVx - f.vx) * SNOW_INERTIA;
     f.x += f.vx;
     if (f.y - f.r > height) {
@@ -247,7 +248,7 @@ function startAnimation(canvas: HTMLCanvasElement) {
   const flakes = initSnowflakes(window.innerWidth, window.innerHeight);
   let frame = 0;
   /** 每 N 帧渲染一次，减少 GPU 负载 */
-  const RENDER_INTERVAL = 2;
+  const RENDER_INTERVAL = 1;
 
   // ===== 多层平滑噪声风场 =====
   // 原理：将 3 层不同频率的平滑噪声叠加，模拟自然风的「多尺度」特性
@@ -293,7 +294,7 @@ function startAnimation(canvas: HTMLCanvasElement) {
     const windAbs = Math.abs(windNorm);
     const intensity = Math.max(0, Math.min(1, LIGHT_INTENSITY + windAbs * (HEAVY_INTENSITY - LIGHT_INTENSITY)));
     const swayPhase = frame * 0.01;
-    updateSnowflakes(flakes, w, h, intensity, globalWind, swayPhase);
+    updateSnowflakes(flakes, w, h, intensity, globalWind, swayPhase, windAbs);
     if (frame % RENDER_INTERVAL === 0) {
       renderer.render(flakes);
     }
