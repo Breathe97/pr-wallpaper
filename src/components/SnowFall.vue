@@ -11,9 +11,6 @@ const MAX_SNOW = 100;
 const LIGHT_INTENSITY = 0.12;
 /** 大雪强度（0~1） */
 const HEAVY_INTENSITY = 0.7;
-/** 从小雪变为大雪的最小/最大延迟时间（毫秒） */
-const TRANSITION_DELAY_MIN = 6000;
-const TRANSITION_DELAY_MAX = 60000;
 /** 风速变化幅度（像素/帧） */
 const WIND_AMPLITUDE = 0.8;
 /** 风速变化速度，越小变化越慢越平滑 */
