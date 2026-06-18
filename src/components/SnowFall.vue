@@ -12,7 +12,7 @@ const LIGHT_INTENSITY = 0.12;
 /** 大雪强度（0~1） */
 const HEAVY_INTENSITY = 0.7;
 /** 风速强度（像素/帧） */
-const WIND_AMPLITUDE = 3.5;
+const WIND_AMPLITUDE = 8.0;
 /** 速度系数：速度 = 半径 × 该值 */
 const SPEED_FACTOR = 0.3;
 // ===================
@@ -23,6 +23,7 @@ interface Snowflake {
   r: number;
   speed: number;
   windOffset: number;
+  vx: number;        // 水平速度（惯性）
   active: boolean;
 }
 
@@ -36,6 +37,7 @@ function initSnowflakes(width: number, height: number): Snowflake[] {
       r,
       speed: r * SPEED_FACTOR,
       windOffset: Math.random() * 0.6 - 0.3,
+      vx: (Math.random() - 0.5) * 0.5,
       active: true,
     });
   }
@@ -190,6 +192,9 @@ refillRandPool();
 // ====================================================
 
 // ===== 优化: swayPhase 替代逐雪花 sin 计算 =====
+/** 雪花水平惯性系数（0~1，越小惯性越大） */
+const SNOW_INERTIA = 0.06;
+
 function updateSnowflakes(
   flakes: Snowflake[], width: number, height: number,
   intensity: number, globalWind: number, swayPhase: number
@@ -197,7 +202,10 @@ function updateSnowflakes(
   for (const f of flakes) {
     if (!f.active) continue;
     f.y += f.speed;
-    f.x += globalWind + f.windOffset + Math.sin(swayPhase + f.windOffset * Math.PI) * 0.6;
+    // 水平速度平滑跟踪风速（惯性效应：风停后雪花继续滑行）
+    const targetVx = globalWind + f.windOffset + Math.sin(swayPhase + f.windOffset * Math.PI) * 0.6;
+    f.vx += (targetVx - f.vx) * SNOW_INERTIA;
+    f.x += f.vx;
     if (f.y - f.r > height) {
       if (fastRand() < intensity) {
         f.y = -f.r;
@@ -265,10 +273,10 @@ function startAnimation(canvas: HTMLCanvasElement) {
 
   /** 3 层噪声合成 → 自然风速（返回值域 ≈ ±1） */
   function windNoise(t: number): number {
-    const slow  = noise1D(t * 0.0008, 1) * 0.6;  // 长期漂移（周期 ~12500 帧 ≈ 208 秒）
-    const mid   = noise1D(t * 0.006,  2) * 0.3;  // 阵风起伏（周期 ~1667 帧 ≈ 28 秒）
-    const fast  = noise1D(t * 0.04,   3) * 0.1;  // 湍流抖动（周期 ~250 帧 ≈ 4 秒）
-    return Math.max(-1, Math.min(1, slow + mid + fast));
+    const slow  = noise1D(t * 0.0008, 1) * 0.8;  // 长期漂移
+    const mid   = noise1D(t * 0.006,  2) * 0.4;  // 阵风起伏
+    const fast  = noise1D(t * 0.04,   3) * 0.15; // 湍流抖动
+    return Math.max(-1.5, Math.min(1.5, slow + mid + fast));
   }
 
   // 用一个固定偏移让每一轮运行时风不同
