@@ -12,7 +12,7 @@ const LIGHT_INTENSITY = 0.12;
 /** 大雪强度（0~1） */
 const HEAVY_INTENSITY = 0.7;
 /** 风速变化幅度（像素/帧） */
-const WIND_AMPLITUDE = 0.8;
+const WIND_AMPLITUDE = 2.5;
 /** 风速变化速度，越小变化越慢越平滑 */
 const WIND_SPEED = 0.001;
 /** 速度系数：速度 = 半径 × 该值 */
@@ -89,7 +89,7 @@ function updateSnowflakes(
   for (const f of flakes) {
     if (!f.active) continue;
     f.y += f.speed;
-    f.x += globalWind + f.windOffset + Math.sin(f.y * 0.01) * 0.3;
+    f.x += globalWind + f.windOffset + Math.sin(f.y * 0.01) * 0.6;
     if (f.y - f.r > height) {
       if (Math.random() < intensity) {
         f.y = -f.r;
