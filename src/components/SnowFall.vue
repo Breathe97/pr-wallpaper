@@ -12,8 +12,8 @@ const LIGHT_INTENSITY = 0.12;
 /** 大雪强度（0~1） */
 const HEAVY_INTENSITY = 0.7;
 /** 从小雪变为大雪的最小/最大延迟时间（毫秒） */
-const TRANSITION_DELAY_MIN = 60000;
-const TRANSITION_DELAY_MAX = 600000;
+const TRANSITION_DELAY_MIN = 6000;
+const TRANSITION_DELAY_MAX = 60000;
 /** 风速变化幅度（像素/帧） */
 const WIND_AMPLITUDE = 0.8;
 /** 风速变化速度，越小变化越慢越平滑 */
@@ -109,23 +109,26 @@ function startAnimation(canvas: HTMLCanvasElement) {
   window.addEventListener("resize", resize);
 
   const flakes = initSnowflakes(window.innerWidth, window.innerHeight);
-  let elapsed = 0;
-  let isHeavy = false;
-  const transitionAt = TRANSITION_DELAY_MIN + Math.random() * (TRANSITION_DELAY_MAX - TRANSITION_DELAY_MIN);
+  let frame = 0;
   const phase1 = Math.random() * Math.PI * 2;
   const phase2 = Math.random() * Math.PI * 2;
   const phase3 = Math.random() * Math.PI * 2;
+  // 随机强度波动相位，使雪花密度变化不可预测
+  const randomPhase = Math.random() * Math.PI * 2;
 
   function animate() {
-    elapsed++;
+    frame++;
     const w = window.innerWidth;
     const h = window.innerHeight;
-    if (!isHeavy && elapsed * 16 >= transitionAt) isHeavy = true;
     const globalWind =
-      Math.sin(elapsed * WIND_SPEED * 1.0 + phase1) * WIND_AMPLITUDE * 0.5 +
-      Math.sin(elapsed * WIND_SPEED * 2.7 + phase2) * WIND_AMPLITUDE * 0.3 +
-      Math.sin(elapsed * WIND_SPEED * 5.3 + phase3) * WIND_AMPLITUDE * 0.2;
-    const intensity = isHeavy ? HEAVY_INTENSITY : LIGHT_INTENSITY;
+      Math.sin(frame * WIND_SPEED * 1.0 + phase1) * WIND_AMPLITUDE * 0.5 +
+      Math.sin(frame * WIND_SPEED * 2.7 + phase2) * WIND_AMPLITUDE * 0.3 +
+      Math.sin(frame * WIND_SPEED * 5.3 + phase3) * WIND_AMPLITUDE * 0.2;
+    // 风力越强，雪花密度越大（风绝对值 0~1 映射到 LIGHT~HEAVY）
+    const windStrength = Math.abs(globalWind) / WIND_AMPLITUDE;
+    // 叠加随机波动 (±0.15)，让密度变化更有不可预测感
+    const randomMod = Math.sin(frame * 0.005 + randomPhase) * 0.15;
+    const intensity = Math.max(0, Math.min(1, LIGHT_INTENSITY + windStrength * (HEAVY_INTENSITY - LIGHT_INTENSITY) + randomMod));
     updateSnowflakes(flakes, w, h, intensity, globalWind);
     drawSnowfall(ctx, flakes, w, h);
     localAnimId = requestAnimationFrame(animate);
