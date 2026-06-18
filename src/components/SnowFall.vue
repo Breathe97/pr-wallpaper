@@ -6,7 +6,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null);
 
 // ===== 可调参数 =====
 /** 雪花总数 */
-const MAX_SNOW = 100;
+const MAX_SNOW = 60;
 /** 小雪强度（0~1，越低雪花越少） */
 const LIGHT_INTENSITY = 0.12;
 /** 大雪强度（0~1） */
@@ -88,7 +88,7 @@ function updateSnowflakes(
 }
 
 function startAnimation(canvas: HTMLCanvasElement) {
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d", { willReadFrequently: false })!;
   const dpr = window.devicePixelRatio || 1;
   let localAnimId = 0;
 
@@ -107,6 +107,8 @@ function startAnimation(canvas: HTMLCanvasElement) {
 
   const flakes = initSnowflakes(window.innerWidth, window.innerHeight);
   let frame = 0;
+  /** 每 N 帧渲染一次，减少 GPU 负载 */
+  const RENDER_INTERVAL = 2;
   const phase1 = Math.random() * Math.PI * 2;
   const phase2 = Math.random() * Math.PI * 2;
   const phase3 = Math.random() * Math.PI * 2;
@@ -127,7 +129,9 @@ function startAnimation(canvas: HTMLCanvasElement) {
     const randomMod = Math.sin(frame * 0.005 + randomPhase) * 0.15;
     const intensity = Math.max(0, Math.min(1, LIGHT_INTENSITY + windStrength * (HEAVY_INTENSITY - LIGHT_INTENSITY) + randomMod));
     updateSnowflakes(flakes, w, h, intensity, globalWind);
-    drawSnowfall(ctx, flakes, w, h);
+    if (frame % RENDER_INTERVAL === 0) {
+      drawSnowfall(ctx, flakes, w, h);
+    }
     localAnimId = requestAnimationFrame(animate);
   }
 
