@@ -32,7 +32,6 @@ interface Snowflake {
   r: number;
   speed: number;
   windOffset: number;
-  opacity: number;
   active: boolean;
   /** 不规则形状顶点偏移（相对于圆心，已按半径缩放） */
   shape: Point[];
@@ -61,7 +60,6 @@ function initSnowflakes(width: number, height: number): Snowflake[] {
       r,
       speed: r * SPEED_FACTOR,
       windOffset: Math.random() * 0.6 - 0.3,
-      opacity: 1,
       active: true,
       shape: generateIrregularShape(r),
     });
@@ -85,17 +83,37 @@ function drawSnowfall(ctx: CanvasRenderingContext2D, flakes: Snowflake[], width:
   ctx.fill(path);
 }
 
+// ===== 优化: 随机数池（减少 Math.random() 调用频率） =====
+const RAND_POOL_SIZE = 1024;
+const randPool = new Float64Array(RAND_POOL_SIZE);
+let randIdx = 0;
+
+function fastRand(): number {
+  randIdx = (randIdx + 1) & (RAND_POOL_SIZE - 1);
+  return randPool[randIdx];
+}
+
+function refillRandPool() {
+  for (let i = 0; i < RAND_POOL_SIZE; i++) {
+    randPool[i] = Math.random();
+  }
+}
+refillRandPool();
+// ====================================================
+
+// ===== 优化: swayPhase 替代逐雪花 sin 计算 =====
 function updateSnowflakes(
-  flakes: Snowflake[], width: number, height: number, intensity: number, globalWind: number
+  flakes: Snowflake[], width: number, height: number,
+  intensity: number, globalWind: number, swayPhase: number
 ) {
   for (const f of flakes) {
     if (!f.active) continue;
     f.y += f.speed;
-    f.x += globalWind + f.windOffset + Math.sin(f.y * 0.01) * 0.6;
+    f.x += globalWind + f.windOffset + Math.sin(swayPhase + f.windOffset * Math.PI) * 0.6;
     if (f.y - f.r > height) {
-      if (Math.random() < intensity) {
+      if (fastRand() < intensity) {
         f.y = -f.r;
-        f.x = Math.random() * width;
+        f.x = fastRand() * width;
       } else {
         f.active = false;
       }
@@ -107,13 +125,14 @@ function updateSnowflakes(
     }
   }
   for (const f of flakes) {
-    if (!f.active && Math.random() < intensity * 0.02) {
+    if (!f.active && fastRand() < intensity * 0.02) {
       f.active = true;
       f.y = -f.r;
-      f.x = Math.random() * width;
+      f.x = fastRand() * width;
     }
   }
 }
+// =================================================
 
 function startAnimation(canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext("2d", { willReadFrequently: false })!;
@@ -167,20 +186,20 @@ function startAnimation(canvas: HTMLCanvasElement) {
     // 叠加随机波动 (±0.15)
     const randomMod = Math.sin(frame * 0.005 + randomPhase) * 0.15;
     const intensity = Math.max(0, Math.min(1, LIGHT_INTENSITY + windAbs * (HEAVY_INTENSITY - LIGHT_INTENSITY) + randomMod));
-    updateSnowflakes(flakes, w, h, intensity, globalWind);
+    const swayPhase = frame * 0.01;
+    updateSnowflakes(flakes, w, h, intensity, globalWind, swayPhase);
     if (frame % RENDER_INTERVAL === 0) {
       drawSnowfall(ctx, flakes, w, h);
+    }
+    if (frame % 256 === 0) {
+      refillRandPool();
     }
     localAnimId = requestAnimationFrame(animate);
   }
 
-  // 延迟 2 秒启动雪花，等音乐
-  const startTimeout = setTimeout(() => {
-    animate();
-  }, 1000);
+  animate();
 
   return () => {
-    clearTimeout(startTimeout);
     cancelAnimationFrame(localAnimId);
     window.removeEventListener("resize", resize);
   };
@@ -239,5 +258,7 @@ onUnmounted(() => {
   height: 100vh;
   pointer-events: none;
   z-index: 9999;
+  will-change: transform;
+  transform: translateZ(0);
 }
 </style>
