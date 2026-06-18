@@ -12,11 +12,7 @@ const LIGHT_INTENSITY = 0.12;
 /** 大雪强度（0~1） */
 const HEAVY_INTENSITY = 0.7;
 /** 风速强度（像素/帧） */
-const WIND_AMPLITUDE = 2.5;
-/** 风向持续时间最小值（毫秒） */
-const WIND_DIR_MS_MIN = 30000;
-/** 风向持续时间最大值（毫秒） */
-const WIND_DIR_MS_MAX = 180000;
+const WIND_AMPLITUDE = 3.5;
 /** 速度系数：速度 = 半径 × 该值 */
 const SPEED_FACTOR = 0.3;
 // ===================
@@ -245,38 +241,49 @@ function startAnimation(canvas: HTMLCanvasElement) {
   /** 每 N 帧渲染一次，减少 GPU 负载 */
   const RENDER_INTERVAL = 2;
 
-  // ===== 风向状态（指数平滑过渡） =====
-  const WIND_SMOOTHING = 0.025;
-  let windTimer = 0;
-  let windDuration = 0;
-  let targetWind = (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.5) * WIND_AMPLITUDE;
-  let currentWind = targetWind;
-  function pickWind() {
-    const dir = Math.random() > 0.5 ? 1 : -1;
-    const strength = 0.5 + Math.random() * 0.5;
-    targetWind = dir * strength * WIND_AMPLITUDE;
-    windDuration = Math.floor(
-      (WIND_DIR_MS_MIN + Math.random() * (WIND_DIR_MS_MAX - WIND_DIR_MS_MIN)) / 16
-    );
-    windTimer = windDuration;
+  // ===== 多层平滑噪声风场 =====
+  // 原理：将 3 层不同频率的平滑噪声叠加，模拟自然风的「多尺度」特性
+  // - 低频层：长期风向漂移（~1-3 分钟一个周期）
+  // - 中频层：阵风起伏（~10-20 秒一个周期）
+  // - 高频层：湍流抖动（~1-3 秒一个周期）
+  // 每层使用独立的伪随机种子，永不重复
+
+  /** 1D 值噪声（平滑插值 + 确定性哈希） */
+  function noise1D(t: number, seed: number): number {
+    const s = t + seed * 1000;
+    const i = Math.floor(s);
+    const f = s - i;
+    const sf = f * f * (3 - 2 * f); // smoothstep 插值
+    const h = (x: number): number => {
+      let v = (x * 374761393 + 668265263) | 0;
+      v = ((v ^ (v >> 13)) * 1274126177) | 0;
+      v = v ^ (v >> 16);
+      return (v & 0x7FFF) / 32768;
+    };
+    return h(i) * (1 - sf) + h(i + 1) * sf;
   }
-  pickWind();
-  // 随机强度波动相位
-  const randomPhase = Math.random() * Math.PI * 2;
+
+  /** 3 层噪声合成 → 自然风速（返回值域 ≈ ±1） */
+  function windNoise(t: number): number {
+    const slow  = noise1D(t * 0.0008, 1) * 0.6;  // 长期漂移（周期 ~12500 帧 ≈ 208 秒）
+    const mid   = noise1D(t * 0.006,  2) * 0.3;  // 阵风起伏（周期 ~1667 帧 ≈ 28 秒）
+    const fast  = noise1D(t * 0.04,   3) * 0.1;  // 湍流抖动（周期 ~250 帧 ≈ 4 秒）
+    return Math.max(-1, Math.min(1, slow + mid + fast));
+  }
+
+  // 用一个固定偏移让每一轮运行时风不同
+  const windTimeOffset = Math.random() * 10000;
 
   function animate() {
     frame++;
     const w = window.innerWidth;
     const h = window.innerHeight;
-    windTimer--;
-    if (windTimer <= 0) pickWind();
-    currentWind += (targetWind - currentWind) * WIND_SMOOTHING;
-    const globalWind = currentWind;
+    // 采样噪声生成风速（连续、有机、永不重复）
+    const windNorm = windNoise(frame + windTimeOffset);
+    const globalWind = windNorm * WIND_AMPLITUDE;
     // 风力越强，雪花密度越大
-    const windAbs = Math.abs(globalWind) / WIND_AMPLITUDE;
-    // 叠加随机波动 (±0.15)
-    const randomMod = Math.sin(frame * 0.005 + randomPhase) * 0.15;
-    const intensity = Math.max(0, Math.min(1, LIGHT_INTENSITY + windAbs * (HEAVY_INTENSITY - LIGHT_INTENSITY) + randomMod));
+    const windAbs = Math.abs(windNorm);
+    const intensity = Math.max(0, Math.min(1, LIGHT_INTENSITY + windAbs * (HEAVY_INTENSITY - LIGHT_INTENSITY)));
     const swayPhase = frame * 0.01;
     updateSnowflakes(flakes, w, h, intensity, globalWind, swayPhase);
     if (frame % RENDER_INTERVAL === 0) {
