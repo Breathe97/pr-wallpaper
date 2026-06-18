@@ -135,9 +135,8 @@ function startAnimation(canvas: HTMLCanvasElement) {
   let frame = 0;
   /** 每 N 帧渲染一次，减少 GPU 负载 */
   const RENDER_INTERVAL = 2;
-  const phase1 = Math.random() * Math.PI * 2;
-  const phase2 = Math.random() * Math.PI * 2;
-  const phase3 = Math.random() * Math.PI * 2;
+  /** 风向相位，每次启动随机 */
+  const windPhase = Math.random() * Math.PI * 2;
   // 随机强度波动相位，使雪花密度变化不可预测
   const randomPhase = Math.random() * Math.PI * 2;
 
@@ -145,10 +144,7 @@ function startAnimation(canvas: HTMLCanvasElement) {
     frame++;
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const globalWind =
-      Math.sin(frame * WIND_SPEED * 1.0 + phase1) * WIND_AMPLITUDE * 0.5 +
-      Math.sin(frame * WIND_SPEED * 2.7 + phase2) * WIND_AMPLITUDE * 0.3 +
-      Math.sin(frame * WIND_SPEED * 5.3 + phase3) * WIND_AMPLITUDE * 0.2;
+    const globalWind = Math.sin(frame * WIND_SPEED + windPhase) * WIND_AMPLITUDE;
     // 风力越强，雪花密度越大（风绝对值 0~1 映射到 LIGHT~HEAVY）
     const windStrength = Math.abs(globalWind) / WIND_AMPLITUDE;
     // 叠加随机波动 (±0.15)，让密度变化更有不可预测感
