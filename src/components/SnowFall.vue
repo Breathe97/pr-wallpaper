@@ -21,11 +21,6 @@ const WIND_DIR_MS_MAX = 180000;
 const SPEED_FACTOR = 0.3;
 // ===================
 
-interface Point {
-  x: number;
-  y: number;
-}
-
 interface Snowflake {
   x: number;
   y: number;
@@ -33,21 +28,6 @@ interface Snowflake {
   speed: number;
   windOffset: number;
   active: boolean;
-  /** 不规则形状顶点偏移（相对于圆心，已按半径缩放） */
-  shape: Point[];
-}
-
-/** 生成不规则形状的顶点（8~12 个点，半径波动 0.6~1.0） */
-function generateIrregularShape(baseR: number): Point[] {
-  const count = Math.floor(Math.random() * 5) + 8; // 8~12
-  const points: Point[] = [];
-  for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2;
-    const rFactor = 0.6 + Math.random() * 0.4; // 0.6~1.0 随机波动
-    const r = baseR * rFactor;
-    points.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
-  }
-  return points;
 }
 
 function initSnowflakes(width: number, height: number): Snowflake[] {
@@ -61,22 +41,20 @@ function initSnowflakes(width: number, height: number): Snowflake[] {
       speed: r * SPEED_FACTOR,
       windOffset: Math.random() * 0.6 - 0.3,
       active: true,
-      shape: generateIrregularShape(r),
     });
   }
   return flakes;
 }
 
-// ===== WebGL2 渲染器（调用独立显卡加速） =====
+// ===== WebGL2 点渲染器（gl.POINTS — 每雪花 1 顶点，97% 顶点减少） =====
 class SnowGLRenderer {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram;
   private vao: WebGLVertexArrayObject;
   private vertBuffer: WebGLBuffer;
-  private vertCapacity: number;
-  private vertStride = 4; // floats/vertex: localX, localY, worldX, worldY
   private vertData: Float32Array;
   private resUniformLoc: WebGLUniformLocation;
+  private dprUniformLoc: WebGLUniformLocation;
 
   constructor(canvas: HTMLCanvasElement, maxFlakes: number) {
     const gl = canvas.getContext('webgl2', {
@@ -85,28 +63,33 @@ class SnowGLRenderer {
     })!;
     this.gl = gl;
 
-    // —— 顶点着色器 ——
+    // —— 顶点着色器：每雪花仅 1 个顶点，gl_PointSize 控制大小 ——
     const vs = gl.createShader(gl.VERTEX_SHADER)!;
     gl.shaderSource(vs, `#version 300 es
-      in vec2 a_local;
-      in vec2 a_world;
+      in vec2 a_pos;
+      in float a_size;
       uniform vec2 u_resolution;
+      uniform float u_dpr;
       void main() {
-        vec2 pos = a_local + a_world;
-        vec2 ndc = pos / u_resolution * 2.0;
+        vec2 ndc = a_pos / u_resolution * 2.0;
         ndc -= 1.0;
         ndc.y = -ndc.y;
         gl_Position = vec4(ndc, 0.0, 1.0);
+        gl_PointSize = a_size * u_dpr;
       }
     `);
     gl.compileShader(vs);
 
-    // —— 片段着色器 ——
+    // —— 片段着色器：gl_PointCoord 裁切为圆形 ——
     const fs = gl.createShader(gl.FRAGMENT_SHADER)!;
     gl.shaderSource(fs, `#version 300 es
       precision highp float;
       out vec4 fragColor;
-      void main() { fragColor = vec4(1.0); }
+      void main() {
+        float d = length(gl_PointCoord - vec2(0.5));
+        if (d > 0.5) discard;
+        fragColor = vec4(1.0);
+      }
     `);
     gl.compileShader(fs);
 
@@ -117,26 +100,24 @@ class SnowGLRenderer {
     gl.useProgram(prog);
     this.program = prog;
     this.resUniformLoc = gl.getUniformLocation(prog, 'u_resolution')!;
+    this.dprUniformLoc = gl.getUniformLocation(prog, 'u_dpr')!;
 
     // —— VAO & VBO ——
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
     this.vao = vao;
 
-    // 预分配缓存：maxFlakes × 10 三角形 × 3 顶点 × 4 float
-    const vertsPerFlake = 10 * 3;
-    this.vertCapacity = maxFlakes * vertsPerFlake * this.vertStride;
-    this.vertData = new Float32Array(this.vertCapacity);
+    // 每雪花 3 float: posX, posY, size (直径)
+    this.vertData = new Float32Array(maxFlakes * 3);
 
     const buf = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, this.vertData.byteLength, gl.DYNAMIC_DRAW);
     this.vertBuffer = buf;
 
-    const fs2 = 4;
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, this.vertStride * fs2, 0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 12, 0);
     gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, this.vertStride * fs2, 2 * fs2);
+    gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 12, 8);
     gl.enableVertexAttribArray(1);
 
     gl.clearColor(0, 0, 0, 0);
@@ -150,6 +131,11 @@ class SnowGLRenderer {
     gl.uniform2f(this.resUniformLoc, cssW, cssH);
   }
 
+  setDpr(dpr: number) {
+    this.gl.useProgram(this.program);
+    this.gl.uniform1f(this.dprUniformLoc, dpr);
+  }
+
   clear() {
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
   }
@@ -161,31 +147,20 @@ class SnowGLRenderer {
 
     for (const f of flakes) {
       if (!f.active) continue;
-      const pts = f.shape;
-      const n = pts.length;
-      const bx = f.x;
-      const by = f.y;
-      // 三角形扇：v0,v1,v2 → v0,v2,v3 → ... → v0,v_{n-2},v_{n-1}
-      const ax = pts[0].x, ay = pts[0].y;
-      for (let i = 1; i < n - 1; i++) {
-        const b0 = idx * 4;
-        data[b0] = ax; data[b0 + 1] = ay;
-        data[b0 + 2] = bx; data[b0 + 3] = by;
-        const b1 = (idx + 1) * 4;
-        data[b1] = pts[i].x; data[b1 + 1] = pts[i].y;
-        data[b1 + 2] = bx; data[b1 + 3] = by;
-        const b2 = (idx + 2) * 4;
-        data[b2] = pts[i + 1].x; data[b2 + 1] = pts[i + 1].y;
-        data[b2 + 2] = bx; data[b2 + 3] = by;
-        idx += 3;
-      }
+      const base = idx * 3;
+      data[base] = f.x;
+      data[base + 1] = f.y;
+      data[base + 2] = f.r * 2; // 直径（CSS 像素）
+      idx++;
     }
 
+    if (idx === 0) { this.clear(); return; }
+
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data, 0, idx * 4);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data, 0, idx * 3);
     gl.bindVertexArray(this.vao);
     this.clear();
-    gl.drawArrays(gl.TRIANGLES, 0, idx);
+    gl.drawArrays(gl.POINTS, 0, idx);
     gl.bindVertexArray(null);
   }
 
@@ -195,6 +170,7 @@ class SnowGLRenderer {
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
     this.setViewport(canvas.width, canvas.height, w, h);
+    this.setDpr(dpr);
   }
 }
 // ==============================================
@@ -269,14 +245,16 @@ function startAnimation(canvas: HTMLCanvasElement) {
   /** 每 N 帧渲染一次，减少 GPU 负载 */
   const RENDER_INTERVAL = 2;
 
-  // ===== 风向状态 =====
-  let windDir = Math.random() > 0.5 ? 1 : -1;
-  let windStrength = 0.5 + Math.random() * 0.5;
+  // ===== 风向状态（指数平滑过渡） =====
+  const WIND_SMOOTHING = 0.025;
   let windTimer = 0;
   let windDuration = 0;
+  let targetWind = (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.5) * WIND_AMPLITUDE;
+  let currentWind = targetWind;
   function pickWind() {
-    windDir = Math.random() > 0.5 ? 1 : -1;
-    windStrength = 0.5 + Math.random() * 0.5;
+    const dir = Math.random() > 0.5 ? 1 : -1;
+    const strength = 0.5 + Math.random() * 0.5;
+    targetWind = dir * strength * WIND_AMPLITUDE;
     windDuration = Math.floor(
       (WIND_DIR_MS_MIN + Math.random() * (WIND_DIR_MS_MAX - WIND_DIR_MS_MIN)) / 16
     );
@@ -292,7 +270,8 @@ function startAnimation(canvas: HTMLCanvasElement) {
     const h = window.innerHeight;
     windTimer--;
     if (windTimer <= 0) pickWind();
-    const globalWind = windDir * windStrength * WIND_AMPLITUDE;
+    currentWind += (targetWind - currentWind) * WIND_SMOOTHING;
+    const globalWind = currentWind;
     // 风力越强，雪花密度越大
     const windAbs = Math.abs(globalWind) / WIND_AMPLITUDE;
     // 叠加随机波动 (±0.15)
