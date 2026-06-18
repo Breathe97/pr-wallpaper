@@ -11,10 +11,12 @@ const MAX_SNOW = 60;
 const LIGHT_INTENSITY = 0.12;
 /** 大雪强度（0~1） */
 const HEAVY_INTENSITY = 0.7;
-/** 风速变化幅度（像素/帧） */
+/** 风速强度（像素/帧） */
 const WIND_AMPLITUDE = 2.5;
-/** 风速变化速度，越小变化越慢越平滑 */
-const WIND_SPEED = 0.001;
+/** 风向持续时间最小值（毫秒） */
+const WIND_DIR_MS_MIN = 30000;
+/** 风向持续时间最大值（毫秒） */
+const WIND_DIR_MS_MAX = 180000;
 /** 速度系数：速度 = 半径 × 该值 */
 const SPEED_FACTOR = 0.3;
 // ===================
@@ -135,21 +137,36 @@ function startAnimation(canvas: HTMLCanvasElement) {
   let frame = 0;
   /** 每 N 帧渲染一次，减少 GPU 负载 */
   const RENDER_INTERVAL = 2;
-  /** 风向相位，每次启动随机 */
-  const windPhase = Math.random() * Math.PI * 2;
-  // 随机强度波动相位，使雪花密度变化不可预测
+
+  // ===== 风向状态 =====
+  let windDir = Math.random() > 0.5 ? 1 : -1;
+  let windStrength = 0.5 + Math.random() * 0.5;
+  let windTimer = 0;
+  let windDuration = 0;
+  function pickWind() {
+    windDir = Math.random() > 0.5 ? 1 : -1;
+    windStrength = 0.5 + Math.random() * 0.5;
+    windDuration = Math.floor(
+      (WIND_DIR_MS_MIN + Math.random() * (WIND_DIR_MS_MAX - WIND_DIR_MS_MIN)) / 16
+    );
+    windTimer = windDuration;
+  }
+  pickWind();
+  // 随机强度波动相位
   const randomPhase = Math.random() * Math.PI * 2;
 
   function animate() {
     frame++;
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const globalWind = Math.sin(frame * WIND_SPEED + windPhase) * WIND_AMPLITUDE;
-    // 风力越强，雪花密度越大（风绝对值 0~1 映射到 LIGHT~HEAVY）
-    const windStrength = Math.abs(globalWind) / WIND_AMPLITUDE;
-    // 叠加随机波动 (±0.15)，让密度变化更有不可预测感
+    windTimer--;
+    if (windTimer <= 0) pickWind();
+    const globalWind = windDir * windStrength * WIND_AMPLITUDE;
+    // 风力越强，雪花密度越大
+    const windAbs = Math.abs(globalWind) / WIND_AMPLITUDE;
+    // 叠加随机波动 (±0.15)
     const randomMod = Math.sin(frame * 0.005 + randomPhase) * 0.15;
-    const intensity = Math.max(0, Math.min(1, LIGHT_INTENSITY + windStrength * (HEAVY_INTENSITY - LIGHT_INTENSITY) + randomMod));
+    const intensity = Math.max(0, Math.min(1, LIGHT_INTENSITY + windAbs * (HEAVY_INTENSITY - LIGHT_INTENSITY) + randomMod));
     updateSnowflakes(flakes, w, h, intensity, globalWind);
     if (frame % RENDER_INTERVAL === 0) {
       drawSnowfall(ctx, flakes, w, h);
